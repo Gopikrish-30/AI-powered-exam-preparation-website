@@ -16,7 +16,8 @@ export interface StudyPlanDay {
 export async function generateStudyPlan(
   content: string,
   examDate: string,
-  daysUntilExam: number
+  daysUntilExam: number,
+  age?: number
 ): Promise<StudyPlanDay[]> {
   
   // Try Groq First (Primary)
@@ -33,11 +34,13 @@ export async function generateStudyPlan(
           role: "user",
           content: `Exam Date: ${examDate}. Days Remaining: ${daysUntilExam}.
           Create a comprehensive, day-by-day study plan to master the material provided below.
+          Learner Age: ${age ?? "unknown"}. Adjust tone, complexity, and examples to be age-appropriate.
           
           INSTRUCTIONS:
           1. Analyze the provided study material content thoroughly.
           2. Distribute topics logically over the available days.
           3. Ensure the plan is balanced.
+          4. If age is provided, simplify explanations and suggest age-appropriate practice (e.g., more visuals for younger learners, exam strategies for adults).
           
           OUTPUT FORMAT:
           Return a JSON array of objects. Each object represents a study day.
@@ -83,6 +86,7 @@ export async function generateStudyPlan(
         CONTEXT:
         - Exam Date: ${examDate}
         - Days Remaining: ${daysUntilExam}
+        - Learner Age: ${age ?? "unknown"}
         - Goal: Create a comprehensive, day-by-day study plan to master the material provided below.
         
         INSTRUCTIONS:
@@ -91,6 +95,7 @@ export async function generateStudyPlan(
         3. Ensure the plan is balanced: mix heavy theoretical topics with lighter review or practice sessions.
         4. If the exam is very close (e.g., < 5 days), create an intensive "cramming" schedule focusing on high-yield topics.
         5. If the exam is far away, create a paced schedule with built-in review days.
+        6. Adjust tone, complexity, and practice suggestions to be age-appropriate. If age is unknown, assume adult learner.
         
         OUTPUT FORMAT:
         Return a JSON array of objects. Each object represents a study day.

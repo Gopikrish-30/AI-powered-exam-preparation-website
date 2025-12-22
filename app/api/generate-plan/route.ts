@@ -7,6 +7,8 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
     const file = formData.get("file") as File;
     const examDate = formData.get("examDate") as string;
+    const ageStr = formData.get("age") as string | null;
+    const age = ageStr ? parseInt(ageStr, 10) : undefined;
 
     if (!file || !examDate) {
       return NextResponse.json(
@@ -57,7 +59,7 @@ export async function POST(req: NextRequest) {
     console.log(`Generating plan with Gemini... Content length: ${content.length} characters`);
     console.log(`Extracted Text Preview: ${content.substring(0, 200)}...`);
     
-    const plan = await generateStudyPlan(content, examDate, daysUntilExam);
+    const plan = await generateStudyPlan(content, examDate, daysUntilExam, age);
     console.log("Plan generated successfully:", plan.length, "days");
 
     return NextResponse.json({ plan });

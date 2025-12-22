@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -24,13 +24,62 @@ import {
   Bell,
   Download,
 } from "lucide-react"
+import { supabaseClient } from "@/lib/supabase/client"
 
 export default function ProfilePage() {
-  const [userName, setUserName] = useState("Alex Johnson")
-  const [email, setEmail] = useState("alex.johnson@email.com")
+  const [userName, setUserName] = useState("")
+  const [email, setEmail] = useState("")
   const [darkMode, setDarkMode] = useState(false)
   const [notifications, setNotifications] = useState(true)
+  const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
+
+  // Fetch user data from Supabase
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      const { data: { session } } = await supabaseClient.auth.getSession()
+      
+      if (session?.user) {
+        const fullName = session.user.user_metadata?.full_name || ""
+        const userEmail = session.user.email || ""
+        
+        setUserName(fullName || userEmail.split('@')[0])
+        setEmail(userEmail)
+      } else {
+        router.push('/login')
+      }
+      
+      setIsLoading(false)
+    }
+    
+    loadUserProfile()
+  }, [router])
+
+  const handleUpdateProfile = async () => {
+    try {
+      const { data: { user }, error } = await supabaseClient.auth.updateUser({
+        data: {
+          full_name: userName
+        }
+      })
+
+      if (error) {
+        console.error('Error updating profile:', error)
+        alert('Failed to update profile')
+      } else {
+        // Also persist to profiles table for server-side usage
+        if (user) {
+          await supabaseClient
+            .from('profiles')
+            .upsert({ user_id: user.id, full_name: userName, email }, { onConflict: 'user_id' })
+        }
+        alert('Profile updated successfully!')
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error)
+      alert('Failed to update profile')
+    }
+  }
 
   // Mock data for demonstration
   const stats = {
@@ -96,8 +145,13 @@ export default function ProfilePage() {
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="grid lg:grid-cols-3 gap-8">
+      {isLoading ? (
+        <div className="container mx-auto px-4 py-8 text-center">
+          <p className="text-gray-600">Loading profile...</p>
+        </div>
+      ) : (
+        <div className="container mx-auto px-4 py-8">
+          <div className="grid lg:grid-cols-3 gap-8">
           {/* Profile Info */}
           <div className="lg:col-span-1 space-y-6">
             {/* User Profile */}
@@ -124,7 +178,7 @@ export default function ProfilePage() {
                   </div>
                   <div>
                     <Label htmlFor="email">Email</Label>
-                    <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                    <Input id="email" type="email" value={email} readOnly className="bg-gray-100" />
                   </div>
                   <div>
                     <Label htmlFor="examDate">Exam Date</Label>
@@ -132,7 +186,7 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                <Button className="w-full">Update Profile</Button>
+                <Button className="w-full" onClick={handleUpdateProfile}>Update Profile</Button>
               </CardContent>
             </Card>
 
@@ -321,7 +375,8 @@ export default function ProfilePage() {
             </Card>
           </div>
         </div>
-      </div>
+        </div>
+      )}
     </div>
   )
 }

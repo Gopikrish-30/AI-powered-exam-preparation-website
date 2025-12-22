@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import type { StudyPlanDay } from "@/lib/ai"
 import {
   ArrowLeft,
   BookOpen,
@@ -69,6 +70,15 @@ interface Topic {
   materials: StudyMaterial[]
 }
 
+interface SavedStudyPlan {
+  id: string
+  examDate: string
+  createdAt: string
+  plan: StudyPlanDay[]
+  files: string[]
+  title?: string
+}
+
 export default function DayView({ dayId }: DayViewProps) {
   const [topics, setTopics] = useState<Topic[]>([])
   const [videos, setVideos] = useState<VideoResource[]>([])
@@ -106,53 +116,69 @@ export default function DayView({ dayId }: DayViewProps) {
   }, [selectedMaterial?.id]);
 
   useEffect(() => {
-    // Try to load from localStorage first
-    const storedPlan = localStorage.getItem("studyPlan")
-    if (storedPlan) {
+    const loadPlan = () => {
       try {
-        const parsedPlan = JSON.parse(storedPlan)
-        const dayPlan = parsedPlan.find((d: any) => d.day === dayId)
-        
-        if (dayPlan) {
-          // Transform the stored plan into the view format
-          const planTopics: Topic[] = dayPlan.topics.map((topicTitle: string, index: number) => ({
-            id: index + 1,
-            title: topicTitle,
-            completed: false,
-            materials: [
-              {
-                id: index + 1,
-                title: `Study Material: ${topicTitle}`,
-                type: "pdf",
-                pages: "10-25", // Mock pages
-                readTime: "15 min",
-                excerpt: `Comprehensive study material for ${topicTitle}. Click to start studying.`,
-                // Content will be loaded on demand
-                content: undefined 
-              }
-            ]
-          }))
-          setTopics(planTopics)
-          
-          // Add some mock videos based on the topics
-          setVideos([
-            {
-              id: 1,
-              title: `${dayPlan.topics[0]} - Video Tutorial`,
-              url: "#",
-              duration: "15:30",
-              thumbnail: "/placeholder.svg?height=120&width=200",
-            }
-          ])
-          return
+        const savedPlansRaw = localStorage.getItem("studyPlans")
+        const activeId = localStorage.getItem("activePlanId")
+        let planDays: StudyPlanDay[] | null = null
+
+        if (savedPlansRaw) {
+          const parsed = JSON.parse(savedPlansRaw) as SavedStudyPlan[]
+          const activePlan = parsed.find((plan) => plan.id === activeId) || parsed[0]
+          if (activePlan) {
+            planDays = activePlan.plan
+          }
         }
-      } catch (e) {
-        console.error("Error parsing plan", e)
+
+        if (!planDays) {
+          const legacyPlan = localStorage.getItem("studyPlan")
+          if (legacyPlan) {
+            planDays = JSON.parse(legacyPlan) as StudyPlanDay[]
+          }
+        }
+
+        if (planDays) {
+          const dayPlan = planDays.find((d) => d.day === dayId)
+
+          if (dayPlan) {
+            const planTopics: Topic[] = dayPlan.topics.map((topicTitle: string, index: number) => ({
+              id: index + 1,
+              title: topicTitle,
+              completed: false,
+              materials: [
+                {
+                  id: index + 1,
+                  title: `Study Material: ${topicTitle}`,
+                  type: "pdf",
+                  pages: "10-25",
+                  readTime: "15 min",
+                  excerpt: `Comprehensive study material for ${topicTitle}. Click to start studying.`,
+                  content: undefined,
+                },
+              ],
+            }))
+            setTopics(planTopics)
+
+            setVideos([
+              {
+                id: 1,
+                title: `${dayPlan.topics[0] || "Topic"} - Video Tutorial`,
+                url: "#",
+                duration: "15:30",
+                thumbnail: "/placeholder.svg?height=120&width=200",
+              },
+            ])
+            return
+          }
+        }
+      } catch (error) {
+        console.error("Error parsing plan", error)
       }
+
+      generateDayContent(dayId)
     }
 
-    // Fallback to mock data if no plan found
-    generateDayContent(dayId)
+    loadPlan()
   }, [dayId])
 
   const generateDayContent = (dayId: number) => {
