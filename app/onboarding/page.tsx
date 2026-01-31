@@ -31,6 +31,19 @@ export default function OnboardingPage() {
       setEmail(user.email || "")
       setFullName(user.user_metadata?.full_name || "")
 
+      // Check questionnaire first
+      const { data: questionnaire } = await supabaseClient
+        .from('user_questionnaire')
+        .select('id')
+        .eq('user_id', user.id)
+        .limit(1)
+        .maybeSingle()
+
+      if (!questionnaire) {
+        router.push('/questionnaire')
+        return
+      }
+
       // If profile already exists, skip onboarding
       const { data: profile } = await supabaseClient
         .from('profiles')

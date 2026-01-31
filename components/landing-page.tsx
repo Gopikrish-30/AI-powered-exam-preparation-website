@@ -56,8 +56,22 @@ export default function LandingPage() {
           setUserEmail(user?.email || null)
           setUserName(user?.user_metadata?.full_name || user?.email?.split('@')[0] || null)
 
-          // If logged in, ensure profile exists and fetch age
+          // If logged in, check questionnaire first
           if (supaUserId && supabaseClient) {
+            const { data: questionnaire } = await supabaseClient
+              .from('user_questionnaire')
+              .select('id')
+              .eq('user_id', supaUserId)
+              .limit(1)
+              .maybeSingle()
+
+            if (!questionnaire) {
+              // Questionnaire incomplete; redirect
+              router.push('/questionnaire')
+              return
+            }
+
+            // Then check profile and fetch age
             const { data: profileRows } = await supabaseClient
               .from('profiles')
               .select('age')

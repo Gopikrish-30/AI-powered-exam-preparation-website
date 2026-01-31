@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { extractTextFromPdf } from "@/lib/pdf-loader";
 import { generateStudyPlan } from "@/lib/ai";
+import { supabaseServer } from "@/lib/supabase/server";
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,6 +16,30 @@ export async function POST(req: NextRequest) {
         { error: "File and exam date are required" },
         { status: 400 }
       );
+    }
+
+    // Get user ID from auth header to fetch questionnaire
+    const authHeader = req.headers.get("authorization");
+    let questionnaire: any = null;
+
+    if (authHeader && supabaseServer) {
+      try {
+        const token = authHeader.replace("Bearer ", "");
+        const { data: { user } } = await supabaseServer.auth.getUser(token);
+        
+        if (user) {
+          const { data } = await supabaseServer
+            .from("user_questionnaire")
+            .select("*")
+            .eq("user_id", user.id)
+            .limit(1)
+            .maybeSingle();
+          
+          questionnaire = data;
+        }
+      } catch (e) {
+        console.log("Could not fetch questionnaire, proceeding without it");
+      }
     }
 
     // Calculate days until exam
@@ -59,7 +84,7 @@ export async function POST(req: NextRequest) {
     console.log(`Generating plan with Gemini... Content length: ${content.length} characters`);
     console.log(`Extracted Text Preview: ${content.substring(0, 200)}...`);
     
-    const plan = await generateStudyPlan(content, examDate, daysUntilExam, age);
+    const plan = await generateStudyPlan(content, examDate, daysUntilExam, age, questionnaire);
     console.log("Plan generated successfully:", plan.length, "days");
 
     return NextResponse.json({ plan });

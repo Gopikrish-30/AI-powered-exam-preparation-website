@@ -58,6 +58,19 @@ export default function Dashboard() {
         
         setUserEmail(email || null)
 
+        // Check questionnaire first
+        const { data: questionnaire } = await supabaseClient
+          .from('user_questionnaire')
+          .select('id')
+          .eq('user_id', session.user.id)
+          .limit(1)
+          .maybeSingle()
+
+        if (!questionnaire) {
+          router.push('/questionnaire')
+          return
+        }
+
         // Ensure profile exists (age personalization) else redirect to onboarding
         if (session.user.id) {
           const { data: profile } = await supabaseClient

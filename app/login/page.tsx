@@ -72,11 +72,25 @@ export default function LoginPage() {
         console.log("✅ Sign in successful! User:", data.user?.id)
       }
 
-      // After login, check if profile exists; if not, go to onboarding
+      // After login, check questionnaire -> profile -> home flow
       try {
         const { data: { session } } = await supabaseClient.auth.getSession()
         const userId = session?.user?.id
         if (userId) {
+          // Check questionnaire first
+          const { data: questionnaire } = await supabaseClient
+            .from('user_questionnaire')
+            .select('id')
+            .eq('user_id', userId)
+            .limit(1)
+            .maybeSingle()
+
+          if (!questionnaire) {
+            router.push('/questionnaire')
+            return
+          }
+
+          // Then check profile
           const { data: profile } = await supabaseClient
             .from('profiles')
             .select('id')

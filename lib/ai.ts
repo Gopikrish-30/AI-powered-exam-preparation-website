@@ -17,8 +17,40 @@ export async function generateStudyPlan(
   content: string,
   examDate: string,
   daysUntilExam: number,
-  age?: number
+  age?: number,
+  questionnaire?: any
 ): Promise<StudyPlanDay[]> {
+  
+  // Build personalization context from questionnaire
+  const personalization = questionnaire
+    ? `
+Learner Profile:
+- Age Group: ${questionnaire.age_group || "unknown"}
+- Current Status: ${questionnaire.current_status || "unknown"}
+- Primary Goal: ${questionnaire.primary_goal || "unknown"}
+- Pursuing: ${questionnaire.pursuing || "unknown"}
+- Domain: ${questionnaire.primary_domain || "unknown"}
+- Explanation Preference: ${questionnaire.explanation_preference || "unknown"}
+
+Personalization Guidelines:
+1. If domain is "${questionnaire.primary_domain}", focus on domain-specific approaches and examples.
+2. Goal "${questionnaire.primary_goal}" suggests focusing on ${
+        questionnaire.primary_goal.includes("Placement")
+          ? "interview/coding problems and practical skills"
+          : questionnaire.primary_goal.includes("Certification")
+            ? "certification-specific topics and exam patterns"
+            : questionnaire.primary_goal.includes("Skill")
+              ? "hands-on projects and real-world applications"
+              : "comprehensive exam coverage"
+      }.
+3. Status "${questionnaire.current_status}" means tailor depth and pace accordingly.
+4. "${questionnaire.explanation_preference}" preference: ${
+        questionnaire.explanation_preference.includes("detailed")
+          ? "provide detailed, in-depth explanations; include more examples and edge cases"
+          : "keep explanations concise and fast-paced; focus on key concepts only"
+      }.
+    `
+    : "";
   
   // Try Groq First (Primary)
   try {
@@ -35,6 +67,8 @@ export async function generateStudyPlan(
           content: `Exam Date: ${examDate}. Days Remaining: ${daysUntilExam}.
           Create a comprehensive, day-by-day study plan to master the material provided below.
           Learner Age: ${age ?? "unknown"}. Adjust tone, complexity, and examples to be age-appropriate.
+          
+          ${personalization}
           
           INSTRUCTIONS:
           1. Analyze the provided study material content thoroughly.
@@ -88,6 +122,8 @@ export async function generateStudyPlan(
         - Days Remaining: ${daysUntilExam}
         - Learner Age: ${age ?? "unknown"}
         - Goal: Create a comprehensive, day-by-day study plan to master the material provided below.
+        
+        ${personalization}
         
         INSTRUCTIONS:
         1. Analyze the provided study material content thoroughly. Identify key modules, chapters, and topics.
